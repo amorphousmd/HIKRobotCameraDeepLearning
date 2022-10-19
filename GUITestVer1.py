@@ -24,7 +24,10 @@ from mmdet.models import build_detector
 import numpy as np
 from centerUtils import detect_center
 from centerUtils import detect_center_bbox
+import os
 import time
+import CameraUtils
+import TCPIP
 
 
 def TxtWrapBy(start_str, end, all):
@@ -243,8 +246,8 @@ class Ui_MainWindow(object):
         self.radioTriggerMode.clicked.connect(self.set_software_trigger_mode)
         self.btnLoadCheckpoint.clicked.connect(self.load_model)
         self.btnRunInferenceVideo.clicked.connect(self.run_model)
-        self.btnRunCalib.clicked.connect(self.displayLabel.clear)
-        self.btnLoadCalib.clicked.connect(self.displayLabel.clear)
+        self.btnRunCalib.clicked.connect(self.runCameraCalib)
+        self.btnLoadCalib.clicked.connect(self.loadCameraCalib)
         self.btnRunInference.clicked.connect(self.runInferenceImage)
         self.btnLoadImage.clicked.connect(self.loadImage)
         self.comboModels.currentIndexChanged.connect(self.select_model)
@@ -253,6 +256,14 @@ class Ui_MainWindow(object):
     """
     Define functions
     """
+    def loadCameraCalib(self):
+        filename = CameraUtils.loadCalibration()
+        if not filename:
+            return 0
+        self.editLoadedCalib.setText(filename)
+
+    def runCameraCalib(self):
+        CameraUtils.runCalibration((7,4), (640, 480), 22)
 
     def select_model(self, i):
         if i == 0:
@@ -261,9 +272,8 @@ class Ui_MainWindow(object):
             self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
             self.cfg.model.mask_head.num_classes = 1
             self.polygonMask = True
-            print('0')
         if i == 1:
-            print('1')
+            pass
         if i == 2:
             print('Model: YOLOX-s')
             self.model_name = 'solov2'
@@ -273,6 +283,7 @@ class Ui_MainWindow(object):
 
     def load_model(self):
         self.checkpoint = QFileDialog.getOpenFileName()[0]
+        print('Weights loaded: '+ self.checkpoint + '\n')
         model = build_detector(self.cfg.model)
         checkpoint = load_checkpoint(model, self.checkpoint, map_location='cpu')
         model.CLASSES = checkpoint['meta']['CLASSES']
@@ -295,7 +306,7 @@ class Ui_MainWindow(object):
         self.time_start = time.time()
 
         result = inference_detector(self.model, image)
-        img_show = self.model.show_result(
+        displayLabel = self.model.show_result(
             image,
             result,
             score_thr=score_thr_value,
@@ -306,20 +317,34 @@ class Ui_MainWindow(object):
             text_color=(200, 200, 200),
             mask_color=None,
             out_file=None)
-        if center:
-            center_list = detect_center(img_show, result, score_thr_value)
-            for center_point in center_list:
-                img_show = cv2.circle(img_show, center_point, 10, (255, 0, 0), -1)
+        if self.polygonMask:
+            center_list = detect_center(image, result, score_thr_value)
+            print(center_list)
+            print('\nPixel Coordinates:\n')
+            print(center_list)
+            print('\nWorld Coordinates:\n')
+            print(CameraUtils.convertPixelToWorld(center_list))
+            TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
-        self.time_detect = time.time() - self.time_start
-        self.editInferenceTime.setText(str(self.time_detect))
-        return img_show
+            for center in center_list:
+                displayLabel = cv2.circle(displayLabel, center, 10, (255, 0, 0), -1)
+        else:
+            center_list = detect_center_bbox(result, score_thr_value)
+            print(center_list)
+            print('\nPixel Coordinates:\n')
+            print(center_list)
+            print('\nWorld Coordinates:\n')
+            print(CameraUtils.convertPixelToWorld(center_list))
+            TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+
+            for center in center_list:
+                displayLabel = cv2.circle(displayLabel, center, 10, (255, 0, 0), -1)
+        self.set_img_show(displayLabel)
 
 
     def set_img_show(self,image):
-        """ This function will take image input and resize it
-            only for display purpose and convert it to QImage
-            to set at the label.
+        """
+        Display function that doesn't invert color
         """
         self.tmp = image
         if image is not None:
@@ -334,7 +359,7 @@ class Ui_MainWindow(object):
         global nSelCamIndex
         nSelCamIndex = TxtWrapBy("[", "]", ui.comboDevices.itemData(ui.comboDevices.currentIndex()))
 
-        # ch:枚举相机 | en:enum devices
+        # en:enum devices
 
 
     def enum_devices(self):
@@ -441,7 +466,7 @@ class Ui_MainWindow(object):
             isOpen = True
             self.enable_controls()
 
-        # ch:开始取流 | en:Start grab image
+        # en:Start grab image
 
 
     def start_grabbing(self):
@@ -469,8 +494,11 @@ class Ui_MainWindow(object):
             img = obj_cam_operation.get_np_image()
 
             if self.run:
-                score_thr = float(self.editScoreThreshold.toPlainText())
-                img = self.detect(img, score_thr)
+                if self.editScoreThreshold.toPlainText() == "":
+                    score_threshold = 0.5  # Default threshold Value = 0.5
+                else:
+                    score_threshold = float(self.editScoreThreshold.toPlainText())
+                img = self.detect(img, score_threshold)
             self.set_img_show(img)
             if isGrabbing == False:
                 break
@@ -495,9 +523,8 @@ class Ui_MainWindow(object):
         #     self.Timer.stop()
         #     isGrabbing = False
         #     self.enable_controls()
-        #     print('here2')
 
-        # ch:关闭设备 | Close device
+        # Close device
 
     def close_device(self):
         global isOpen
@@ -527,7 +554,7 @@ class Ui_MainWindow(object):
             self.radioTriggerMode.setChecked(False)
             # ui.bnSoftwareTrigger.setEnabled(False)
 
-        # ch:设置软触发模式 | en:set software trigger mode
+        # en:set software trigger mode
 
 
     def set_software_trigger_mode(self):
@@ -546,7 +573,7 @@ class Ui_MainWindow(object):
             self.radioTriggerMode.setChecked(True)
             # ui.bnSoftwareTrigger.setEnabled(isGrabbing)
 
-        # ch:设置触发命令 | en:set trigger software
+        # en:set trigger software
 
 
     def trigger_once(self):
@@ -556,7 +583,7 @@ class Ui_MainWindow(object):
             # QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
             print('TriggerSoffware failed ret:' + ToHexStr(ret))
 
-        # ch:存图 | en:save image
+        # en:save image
 
 
     def save_bmp(self):
@@ -567,7 +594,7 @@ class Ui_MainWindow(object):
         else:
             print("Save image success")
 
-        # ch: 获取参数 | en:get param
+        # en:get param
 
 
     def get_param(self):
@@ -580,7 +607,7 @@ class Ui_MainWindow(object):
             self.edtGain.setText("{0:.2f}".format(obj_cam_operation.gain))
             self.edtFrameRate.setText("{0:.2f}".format(obj_cam_operation.frame_rate))
 
-        # ch: 设置参数 | en:set param
+        # en:set param
 
 
     def set_param(self):
@@ -600,14 +627,13 @@ class Ui_MainWindow(object):
         img = obj_cam_operation.get_np_image()
         return img
 
-        # ch: 设置控件状态 | en:set enable status
+        # en:set enable status
 
 
     def enable_controls(self):
         global isGrabbing
         global isOpen
 
-        # 先设置group的状态，再单独设置各控件状态
         # ui.groupGrab.setEnabled(isOpen)
         # ui.groupParam.setEnabled(isOpen)
 
@@ -635,12 +661,15 @@ class Ui_MainWindow(object):
 
     def runInferenceImage(self):
         self.time_start = time.time()
-
+        if self.editScoreThreshold.toPlainText() == "":
+            score_threshold = 0.5  # Default threshold Value = 0.5
+        else:
+            score_threshold = float(self.editScoreThreshold.toPlainText())
         result = inference_detector(self.model, self.image)
         displayLabel = self.model.show_result(
             self.image,
             result,
-            score_thr=0.5,
+            score_thr=score_threshold,
             show=False,
             wait_time=0,
             win_name='result',
@@ -652,24 +681,24 @@ class Ui_MainWindow(object):
         self.editInferenceTimeImage.setText(str(self.time_detect))
 
         if self.polygonMask:
-            center_list = detect_center(self.image, result, 0.5)
+            center_list = detect_center(self.image, result, score_threshold)
             print(center_list)
-            # print('\nPixel Coordinates:\n')
-            # print(center_list)
-            # print('\nWorld Coordinates:\n')
-            # print(CameraUtils.convertPixelToWorld(center_list))
-            # TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+            print('\nPixel Coordinates:\n')
+            print(center_list)
+            print('\nWorld Coordinates:\n')
+            print(CameraUtils.convertPixelToWorld(center_list))
+            TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
             for center in center_list:
                 displayLabel = cv2.circle(displayLabel, center, 10, (0, 0, 255), -1)
         else:
-            center_list = detect_center_bbox(result, 0.5)
+            center_list = detect_center_bbox(result, score_threshold)
             print(center_list)
-            # print('\nPixel Coordinates:\n')
-            # print(center_list)
-            # print('\nWorld Coordinates:\n')
-            # print(CameraUtils.convertPixelToWorld(center_list))
-            # TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+            print('\nPixel Coordinates:\n')
+            print(center_list)
+            print('\nWorld Coordinates:\n')
+            print(CameraUtils.convertPixelToWorld(center_list))
+            TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
             for center in center_list:
                 displayLabel = cv2.circle(displayLabel, center, 10, (0, 0, 255), -1)
