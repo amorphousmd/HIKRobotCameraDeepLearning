@@ -22,7 +22,8 @@ from mmcv.runner import load_checkpoint
 from mmdet.apis import inference_detector, show_result_pyplot
 from mmdet.models import build_detector
 import numpy as np
-from model import detect_center
+from centerUtils import detect_center
+from centerUtils import detect_center_bbox
 import time
 
 
@@ -167,7 +168,7 @@ class Ui_MainWindow(object):
         self.label_18 = QtWidgets.QLabel(self.Combo_model)
         self.label_18.setGeometry(QtCore.QRect(10, 120, 63, 20))
         self.label_18.setObjectName("label_18")
-        self.editInferenceTime = QtWidgets.QTextEdit(self.Combo_model)
+        self.editInferenceTime = QtWidgets.QLineEdit(self.Combo_model)
         self.editInferenceTime.setGeometry(QtCore.QRect(100, 120, 131, 31))
         self.editInferenceTime.setObjectName("editInferenceTime")
         self.label_19 = QtWidgets.QLabel(self.Combo_model)
@@ -207,7 +208,7 @@ class Ui_MainWindow(object):
         self.label_21.setGeometry(QtCore.QRect(20, 110, 63, 20))
         self.label_21.setObjectName("label_21")
         self.editInferenceTimeImage = QtWidgets.QTextEdit(self.groupBox_5)
-        self.editInferenceTimeImage.setGeometry(QtCore.QRect(100, 110, 131, 31))
+        self.editInferenceTimeImage.setGeometry(QtCore.QRect(85, 110, 145, 31))
         self.editInferenceTimeImage.setObjectName("editInferenceTimeImage")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
@@ -217,10 +218,15 @@ class Ui_MainWindow(object):
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
+        self.btnRunInferenceVideo.setEnabled(False)
+        self.btnRunInference.setEnabled(False)
         self.model_name = 'solov2' # Default model
         self.run = False
         self.Timer = QTimer()
         self.Timer.timeout.connect(self.trigger_once)
+        self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
+        self.cfg.model.mask_head.num_classes = 1
+        self.polygonMask = True
 
         """
         Connections Connections Connections Connections Connections
@@ -239,8 +245,8 @@ class Ui_MainWindow(object):
         self.btnRunInferenceVideo.clicked.connect(self.run_model)
         self.btnRunCalib.clicked.connect(self.displayLabel.clear)
         self.btnLoadCalib.clicked.connect(self.displayLabel.clear)
-        self.btnRunInference.clicked.connect(self.displayLabel.clear)
-        self.btnLoadImage.clicked.connect(self.displayLabel.clear)
+        self.btnRunInference.clicked.connect(self.runInferenceImage)
+        self.btnLoadImage.clicked.connect(self.loadImage)
         self.comboModels.currentIndexChanged.connect(self.select_model)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -250,20 +256,33 @@ class Ui_MainWindow(object):
 
     def select_model(self, i):
         if i == 0:
+            print('Model: SOLOv2')
             self.model_name = 'solov2'
+            self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
+            self.cfg.model.mask_head.num_classes = 1
+            self.polygonMask = True
+            print('0')
+        if i == 1:
+            print('1')
+        if i == 2:
+            print('Model: YOLOX-s')
+            self.model_name = 'solov2'
+            self.cfg = Config.fromfile('mmdetection/configs/yolox/yolox_s_8x8_300e_coco.py')
+            self.cfg.model.bbox_head.num_classes = 1
+            self.polygonMask = False
 
     def load_model(self):
-        checkpoint = QFileDialog.getOpenFileName()[0]
-        cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
-        cfg.model.mask_head.num_classes = 1
-
-        model = build_detector(cfg.model)
-        checkpoint = load_checkpoint(model, checkpoint, map_location='cpu')
+        self.checkpoint = QFileDialog.getOpenFileName()[0]
+        model = build_detector(self.cfg.model)
+        checkpoint = load_checkpoint(model, self.checkpoint, map_location='cpu')
         model.CLASSES = checkpoint['meta']['CLASSES']
-        model.cfg = cfg
+        model.cfg = self.cfg
         model.to('cuda')
         model.eval()
         self.model = model
+        self.btnRunInferenceVideo.setEnabled(True)
+        self.btnRunInference.setEnabled(True)
+
 
 
     def run_model(self):
@@ -294,7 +313,6 @@ class Ui_MainWindow(object):
 
         self.time_detect = time.time() - self.time_start
         self.editInferenceTime.setText(str(self.time_detect))
-
         return img_show
 
 
@@ -441,8 +459,8 @@ class Ui_MainWindow(object):
             isGrabbing = True
             self.enable_controls()
             self.Timer.start(int(self.editTimeTrigger.toPlainText()))
-        theard = threading.Thread(target=self.thread)
-        theard.start()
+        grab_thread = threading.Thread(target=self.thread)
+        grab_thread.start()
 
 
     def thread(self):
@@ -464,7 +482,7 @@ class Ui_MainWindow(object):
         global obj_cam_operation
         global isGrabbing
         ret = obj_cam_operation.Stop_grabbing()
-        print(ret)
+        print(ToHexStr(ret))
         isGrabbing = False
         self.thread()
         self.Timer.stop()
@@ -598,6 +616,64 @@ class Ui_MainWindow(object):
 
         self.bnStart.setEnabled(isOpen and (not isGrabbing))
         self.bnStop.setEnabled(isOpen and isGrabbing)
+
+    def loadImage(self):
+        self.filename = QFileDialog.getOpenFileName(directory="C:/Users/LAPTOP/Desktop/Pics")[0]
+        self.image = cv2.imread(self.filename)
+        self.set_image(self.image)
+
+    def set_image(self, image):
+        """ This function will take image input and resize it
+            only for display purpose and convert it to QImage
+            to set at the label.
+        """
+        self.tmp = image
+        image = imutils.resize(image, width=640)
+        frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = QImage(frame, frame.shape[1], frame.shape[0], frame.strides[0], QImage.Format_RGB888)
+        self.displayLabel.setPixmap(QtGui.QPixmap.fromImage(image))
+
+    def runInferenceImage(self):
+        self.time_start = time.time()
+
+        result = inference_detector(self.model, self.image)
+        displayLabel = self.model.show_result(
+            self.image,
+            result,
+            score_thr=0.5,
+            show=False,
+            wait_time=0,
+            win_name='result',
+            bbox_color=None,
+            text_color=(200, 200, 200),
+            mask_color=None,
+            out_file=None)
+        self.time_detect = time.time() - self.time_start
+        self.editInferenceTimeImage.setText(str(self.time_detect))
+
+        if self.polygonMask:
+            center_list = detect_center(self.image, result, 0.5)
+            print(center_list)
+            # print('\nPixel Coordinates:\n')
+            # print(center_list)
+            # print('\nWorld Coordinates:\n')
+            # print(CameraUtils.convertPixelToWorld(center_list))
+            # TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+
+            for center in center_list:
+                displayLabel = cv2.circle(displayLabel, center, 10, (0, 0, 255), -1)
+        else:
+            center_list = detect_center_bbox(result, 0.5)
+            print(center_list)
+            # print('\nPixel Coordinates:\n')
+            # print(center_list)
+            # print('\nWorld Coordinates:\n')
+            # print(CameraUtils.convertPixelToWorld(center_list))
+            # TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+
+            for center in center_list:
+                displayLabel = cv2.circle(displayLabel, center, 10, (0, 0, 255), -1)
+        self.set_image(displayLabel)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
