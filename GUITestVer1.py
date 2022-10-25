@@ -108,6 +108,9 @@ class Ui_MainWindow(object):
         self.bnStart = QtWidgets.QPushButton(self.groupBox_2)
         self.bnStart.setGeometry(QtCore.QRect(20, 220, 101, 29))
         self.bnStart.setObjectName("bnStart")
+        self.bnSave = QtWidgets.QPushButton(self.groupBox_2)
+        self.bnSave.setGeometry(QtCore.QRect(20, 265, 101, 29))
+        self.bnSave.setObjectName("bnSave")
         self.label_2 = QtWidgets.QLabel(self.groupBox_2)
         self.label_2.setGeometry(QtCore.QRect(20, 180, 101, 21))
         self.label_2.setObjectName("label_2")
@@ -240,6 +243,7 @@ class Ui_MainWindow(object):
         self.btnClose.clicked.connect(self.close_device)
         self.bnStart.clicked.connect(self.start_grabbing)
         self.bnStop.clicked.connect(self.stop_grabbing)
+        self.bnSave.clicked.connect(self.saveImage)
         self.btnGetParam.clicked.connect(self.get_param)
         self.btnSetParam.clicked.connect(self.set_param)
         self.radioContinueMode.clicked.connect(self.set_continue_mode)
@@ -263,7 +267,12 @@ class Ui_MainWindow(object):
         self.editLoadedCalib.setText(filename)
 
     def runCameraCalib(self):
-        CameraUtils.runCalibration((7,4), (640, 480), 22)
+        CameraUtils.runCalibration((10,7), (2592, 1944), 23.7)
+
+    def saveImage(self):
+        self.filename = QFileDialog.getSaveFileName(filter="PNG(*.png)")[0]
+        cv2.imwrite(self.filename, self.img)
+        print('Image saved as:', self.filename)
 
     def select_model(self, i):
         if i == 0:
@@ -317,6 +326,9 @@ class Ui_MainWindow(object):
             text_color=(200, 200, 200),
             mask_color=None,
             out_file=None)
+        self.time_detect = time.time() - self.time_start
+        display_text = str(self.time_detect)
+        self.editInferenceTime.setText(display_text)
         if self.polygonMask:
             center_list = detect_center(image, result, score_thr_value)
             print(center_list)
@@ -327,7 +339,7 @@ class Ui_MainWindow(object):
             TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
             for center in center_list:
-                displayLabel = cv2.circle(displayLabel, center, 10, (255, 0, 0), -1)
+                displayLabel = cv2.circle(displayLabel, center, 10, (0, 0, 255), -1)
         else:
             center_list = detect_center_bbox(result, score_thr_value)
             print(center_list)
@@ -338,9 +350,9 @@ class Ui_MainWindow(object):
             TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
             for center in center_list:
-                displayLabel = cv2.circle(displayLabel, center, 10, (255, 0, 0), -1)
-        self.set_img_show(displayLabel)
-
+                displayLabel = cv2.circle(displayLabel, center, 10, (0, 0, 255), -1)
+        # self.set_image(displayLabel)
+        return displayLabel
 
     def set_img_show(self,image):
         """
@@ -491,15 +503,16 @@ class Ui_MainWindow(object):
     def thread(self):
         global obj_cam_operation
         while True:
-            img = obj_cam_operation.get_np_image()
+            self.img = obj_cam_operation.get_np_image()
+            self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
 
             if self.run:
                 if self.editScoreThreshold.toPlainText() == "":
                     score_threshold = 0.5  # Default threshold Value = 0.5
                 else:
                     score_threshold = float(self.editScoreThreshold.toPlainText())
-                img = self.detect(img, score_threshold)
-            self.set_img_show(img)
+                self.img = self.detect(self.img, score_threshold)
+            self.set_image(self.img)
             if isGrabbing == False:
                 break
 
@@ -715,6 +728,7 @@ class Ui_MainWindow(object):
         self.radioContinueMode.setText(_translate("MainWindow", "Continue"))
         self.radioTriggerMode.setText(_translate("MainWindow", "Trigger"))
         self.bnStart.setText(_translate("MainWindow", "Start"))
+        self.bnSave.setText(_translate("MainWindow", "Save"))
         self.label_2.setText(_translate("MainWindow", "Time trigger(s):"))
         self.bnStop.setText(_translate("MainWindow", "Stop"))
         self.groupBox_3.setTitle(_translate("MainWindow", "Parameters"))

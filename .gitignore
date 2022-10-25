@@ -2,4 +2,5 @@
 solov2.pth
 *.pth
 mmdetection
-
+TestNUT20221021
+*.jpg
