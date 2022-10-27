@@ -143,12 +143,18 @@ class Ui_MainWindow(object):
         self.editScoreThreshold.setGeometry(QtCore.QRect(100, 170, 131, 31))
         self.editScoreThreshold.setObjectName("editScoreThreshold")
         self.btnRunInferenceVideo = QtWidgets.QPushButton(self.Combo_model)
-        self.btnRunInferenceVideo.setGeometry(QtCore.QRect(10, 221, 93, 29))
+        self.btnRunInferenceVideo.setGeometry(QtCore.QRect(12, 256, 93, 29))
         self.btnRunInferenceVideo.setObjectName("btnRunInferenceVideo")
         self.lblInferenceTime = QtWidgets.QLabel(self.Combo_model)
         self.lblInferenceTime.setGeometry(QtCore.QRect(105, 129, 128, 24))
         self.lblInferenceTime.setText("")
         self.lblInferenceTime.setObjectName("lblInferenceTime")
+        self.editScoreThreshold_3 = QtWidgets.QTextEdit(self.Combo_model)
+        self.editScoreThreshold_3.setGeometry(QtCore.QRect(100, 209, 131, 31))
+        self.editScoreThreshold_3.setObjectName("editScaleFactor")
+        self.label_28 = QtWidgets.QLabel(self.Combo_model)
+        self.label_28.setGeometry(QtCore.QRect(12, 215, 71, 21))
+        self.label_28.setObjectName("label_28")
         self.tabWidget.addTab(self.tab, "")
         self.tab_2 = QtWidgets.QWidget()
         self.tab_2.setObjectName("tab_2")
@@ -295,6 +301,12 @@ class Ui_MainWindow(object):
         self.label_18.setText(_translate("MainWindow", "Time:(s): "))
         self.label_19.setText(_translate("MainWindow", "Threshold"))
         self.btnRunInferenceVideo.setText(_translate("MainWindow", "Run"))
+        self.editScoreThreshold_3.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
+"p, li { white-space: pre-wrap; }\n"
+"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:7.8pt; font-weight:400; font-style:normal;\">\n"
+"<p align=\"right\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">1</p></body></html>"))
+        self.label_28.setText(_translate("MainWindow", "Scale"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Computer Vision"))
         self.btnLoadCalib.setText(_translate("MainWindow", "Load"))
         self.label_20.setText(_translate("MainWindow", "Calib File:"))

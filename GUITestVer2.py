@@ -183,6 +183,7 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.btnRunInference.setEnabled(True)
 
     def run_model(self):
+        self.scaleFactor = float(self.editScoreThreshold_3.toPlainText())
         self.run = True
 
     def detect(self, image, score_thr_value, center=True):
@@ -215,7 +216,7 @@ class Logic(QMainWindow, Ui_MainWindow):
             for center in center_list:
                 displayLabel = cv2.circle(displayLabel, center, 4, (0, 0, 255), -1)
         else:
-            center_list = detect_center_bbox(result, score_thr_value, 0.4)
+            center_list = detect_center_bbox(result, score_thr_value, self.scaleFactor)
             print(center_list)
             print('\nPixel Coordinates:\n')
             print(center_list)
@@ -224,7 +225,7 @@ class Logic(QMainWindow, Ui_MainWindow):
             TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
             for center in center_list:
-                rescaledCenter = rescale(center, 0.4)
+                rescaledCenter = rescale(center, self.scaleFactor)
                 displayLabel = cv2.circle(displayLabel, rescaledCenter, 4, (0, 0, 255), -1)
         # self.set_image(displayLabel)
         return displayLabel
@@ -385,8 +386,8 @@ class Logic(QMainWindow, Ui_MainWindow):
                 else:
                     score_threshold = float(self.editScoreThreshold.toPlainText())
                 temp = self.img
-                width = int(temp.shape[1] * 40 / 100)
-                height = int(temp.shape[0] * 40 / 100)
+                width = int(temp.shape[1] * self.scaleFactor)
+                height = int(temp.shape[0] * self.scaleFactor)
                 dim = (width, height)
 
                 # resize image
