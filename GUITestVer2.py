@@ -44,12 +44,6 @@ def ToHexStr(num):
     return hexStr
 
 
-def rescale(tuple, scale):
-    returnTuple = ()
-    for elems in tuple:
-        returnTuple += (int(elems * scale),)
-    return returnTuple
-
 global deviceList
 deviceList = MV_CC_DEVICE_INFO_LIST()
 global cam
@@ -202,7 +196,8 @@ class Logic(QMainWindow, Ui_MainWindow):
             mask_color=None,
             out_file=None)
         self.time_detect = time.time() - self.time_start
-        self.lblInferenceTime.setText(str(self.time_detect))
+        display_text = str(self.time_detect)
+        self.editInferenceTime.setText(display_text)
         if self.polygonMask:
             center_list = detect_center(image, result, score_thr_value)
             print(center_list)
@@ -213,9 +208,9 @@ class Logic(QMainWindow, Ui_MainWindow):
             TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
             for center in center_list:
-                displayLabel = cv2.circle(displayLabel, center, 4, (0, 0, 255), -1)
+                displayLabel = cv2.circle(displayLabel, center, 10, (0, 0, 255), -1)
         else:
-            center_list = detect_center_bbox(result, score_thr_value, 0.4)
+            center_list = detect_center_bbox(result, score_thr_value)
             print(center_list)
             print('\nPixel Coordinates:\n')
             print(center_list)
@@ -224,8 +219,7 @@ class Logic(QMainWindow, Ui_MainWindow):
             TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
             for center in center_list:
-                rescaledCenter = rescale(center, 0.4)
-                displayLabel = cv2.circle(displayLabel, rescaledCenter, 4, (0, 0, 255), -1)
+                displayLabel = cv2.circle(displayLabel, center, 10, (0, 0, 255), -1)
         # self.set_image(displayLabel)
         return displayLabel
 
@@ -374,24 +368,14 @@ class Logic(QMainWindow, Ui_MainWindow):
         global obj_cam_operation
         while True:
             self.img = obj_cam_operation.get_np_image()
-            try:
-                self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
-            except cv2.error:
-                break
+            self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
 
             if self.run:
                 if self.editScoreThreshold.toPlainText() == "":
                     score_threshold = 0.5  # Default threshold Value = 0.5
                 else:
                     score_threshold = float(self.editScoreThreshold.toPlainText())
-                temp = self.img
-                width = int(temp.shape[1] * 40 / 100)
-                height = int(temp.shape[0] * 40 / 100)
-                dim = (width, height)
-
-                # resize image
-                temp = cv2.resize(temp, dim, interpolation=cv2.INTER_AREA)
-                self.img = self.detect(temp, score_threshold)
+                self.img = self.detect(self.img, score_threshold)
             self.set_image(self.img)
             if isGrabbing == False:
                 break
@@ -549,16 +533,9 @@ class Logic(QMainWindow, Ui_MainWindow):
             score_threshold = 0.5  # Default threshold Value = 0.5
         else:
             score_threshold = float(self.editScoreThreshold.toPlainText())
-        temp = self.image
-        width = int(temp.shape[1] * 50 / 100)
-        height = int(temp.shape[0] * 50 / 100)
-        dim = (width, height)
-
-        # resize image
-        temp = cv2.resize(temp, dim, interpolation=cv2.INTER_AREA)
-        result = inference_detector(self.model, temp)
+        result = inference_detector(self.model, self.image)
         displayLabel = self.model.show_result(
-            temp,
+            self.image,
             result,
             score_thr=score_threshold,
             show=False,
@@ -592,7 +569,7 @@ class Logic(QMainWindow, Ui_MainWindow):
             TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
             for center in center_list:
-                displayLabel = cv2.circle(displayLabel, center, 4, (0, 0, 255), -1)
+                displayLabel = cv2.circle(displayLabel, center, 10, (0, 0, 255), -1)
         self.set_image(displayLabel)
 
 if __name__ == "__main__":
