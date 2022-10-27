@@ -12,10 +12,9 @@ from decimal import Decimal
 from PyQt5.QtWidgets import QFileDialog
 
 pixelToWorldMatrix = np.identity(3)
-
 def draw_crosshair(image, center, width, color):
-    cv.line(image, (center[0] - width // 2, center[1]), (center[0] + width // 2, center[1]), color, 3)
-    cv.line(image, (center[0], center[1] - width // 2), (center[0], center[1] + width // 2), color, 3)
+    cv.line(image, (center[0] - width // 2, center[1]), (center[0] + width // 2, center[1]), color, 9)
+    cv.line(image, (center[0], center[1] - width // 2), (center[0], center[1] + width // 2), color, 9)
 
 
 # Used to convert 1x3 rodrigues rotation matrix to 3x3 rotation matrix
@@ -100,7 +99,7 @@ def runCalibration(chessboardSize, frameSize, chessboardSquareMM):
     imgpoints = []  # 2d points in image plane.
 
     # Get calibration images
-    images = glob.glob('./Images/*.png')
+    images = glob.glob('./Images/*.jpg')
     if images:
         print("Calibration images acquired. Calculating...")
     else:
@@ -122,6 +121,20 @@ def runCalibration(chessboardSize, frameSize, chessboardSquareMM):
             objpoints.append(objp)
             corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
             imgpoints.append(corners)
+
+            # //////////////// COMMENT THIS SECTION IF YOU DON'T WANT TO SEE CALIB IMAGES ///////////
+            # cv.drawChessboardCorners(img, chessboardSize, corners2, ret)
+            #
+            # scale_percent = 60  # percent of original size
+            # width = int(img.shape[1] * scale_percent / 100)
+            # height = int(img.shape[0] * scale_percent / 100)
+            # dim = (width, height)
+            #
+            # # resize image
+            # resized = cv.resize(img, dim, interpolation=cv.INTER_AREA)
+            # cv.imshow('img', resized)
+            # cv.waitKey(100)
+            # ///////////////////////////////////////////////////////////////////////////////////////
 
     cv.destroyAllWindows()
 
@@ -150,50 +163,48 @@ def runCalibration(chessboardSize, frameSize, chessboardSquareMM):
         np.save('./calibSaves/PtWMatrix.npy', np.linalg.inv(transformationMatrix))
     print('\nTransformation matrices saved at ./calibSaves')
 
-    # Test the result on a file (See ./outputs/annotatedFullUpdate.png)
-    image = cv.imread('./Images/0.png')
+    # Test the result on a file (See ./outputs/annotatedFullUpdate.jpg)
+    image = cv.imread('./Images/0.jpg')
     annotated_img = copy.deepcopy(image)
     centerPointW = (0, 0, 1)
     centerPointP = transformationMatrix @ centerPointW
     draw_crosshair(annotated_img, (round(centerPointP[0]), round(centerPointP[1])), 40, (0, 0, 255))
 
-    test_XY_2 = (0, 22, 1)
+    test_XY_2 = (0, chessboardSquareMM, 1)
     for i in range(1, 10):
         t2 = tuple(ti * i for ti in test_XY_2[0:2])
         t2 = (*t2, 1)
         test_xy_2 = transformationMatrix @ t2
-        cv.circle(annotated_img, (round(test_xy_2[0]), round(test_xy_2[1])), radius=3, color=(0, 255, 255), thickness=-1)
+        cv.circle(annotated_img, (round(test_xy_2[0]), round(test_xy_2[1])), radius=9, color=(0, 255, 255), thickness=-1)
 
-    test_XY_2 = (22, 0, 1)
+    test_XY_2 = (chessboardSquareMM, 0, 1)
     for i in range(1, 10):
         t2 = tuple(ti * i for ti in test_XY_2[0:2])
         t2 = (*t2, 1)
         test_xy_2 = transformationMatrix @ t2
-        cv.circle(annotated_img, (round(test_xy_2[0]), round(test_xy_2[1])), radius=3, color=(255, 0, 0), thickness=-1)
+        cv.circle(annotated_img, (round(test_xy_2[0]), round(test_xy_2[1])), radius=9, color=(255, 0, 0), thickness=-1)
 
     path = './outputs'
     isExist = os.path.exists(path)
     if isExist:
-        cv.imwrite("./outputs/annotatedFullUpdate.png", annotated_img)
+        cv.imwrite("./outputs/annotatedFullUpdate.jpg", annotated_img)
     else:
         os.mkdir(path)
-        cv.imwrite("./outputs/annotatedFullUpdate.png", annotated_img)
+        cv.imwrite("./outputs/annotatedFullUpdate.jpg", annotated_img)
     print('\nTest image saved at ./outputs')
 
 
-# def convertPixelToWorld(planeMatrix):
-#     pixelToWorldMatrix = np.load('calibSaves/PtWMatrix.npy')  # Load transformation matrix from file
-#     print(pixelToWorldMatrix)
-#
-#     planeMatrix = (*planeMatrix, 1)  # Append a 1 to tuple
-#     # print(pixelToWorldMatrix)  # Print T matrix, can uncomment this
-#     try:
-#         worldMatrix = pixelToWorldMatrix @ planeMatrix  # Calculate world matrix
-#     except ValueError:
-#         print("Wrong input size. Make sure the input form is (x,y)")
-#     else:
-#         output = (worldMatrix[0], worldMatrix[1])  # Remove the 1 in matrix
-#         return output
+def convertPixelToWorldSingle(planeMatrix):
+
+    planeMatrix = (*planeMatrix, 1)  # Append a 1 to tuple
+    # print(pixelToWorldMatrix)  # Print T matrix, can uncomment this
+    try:
+        worldMatrix = pixelToWorldMatrix @ planeMatrix  # Calculate world matrix
+    except ValueError:
+        print("Wrong input size. Make sure the input form is (x,y)")
+    else:
+        output = (worldMatrix[0], worldMatrix[1])  # Remove the 1 in matrix
+        return output
 
 def convertPixelToWorld(list):
     worldCoordsList = []

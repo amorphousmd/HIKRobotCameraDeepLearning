@@ -21,7 +21,7 @@ from mmdet.models import build_detector
 import numpy as np
 
 import TCPIP
-from solo_v2 import detect_center
+from centerUtils import detect_center
 import time
 import CameraUtils
 

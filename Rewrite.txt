@@ -1,0 +1,5 @@
+    self.overwriteLogic()
+
+def overwriteLogic(self):
+    # Will be overwritten in child class
+    pass

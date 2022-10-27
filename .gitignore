@@ -3,3 +3,6 @@ solov2.pth
 *.pth
 mmdetection
 
+*.png
+*.jpg
+test.py

@@ -102,7 +102,7 @@ def detect_center(img, result, score_thr):
     return center_list
 
 
-def detect_center_bbox(result, score_thr):
+def detect_center_bbox(result, score_thr, scale):
     center_list = []
     for arrays in result:
         for bboxes in arrays:
@@ -110,8 +110,8 @@ def detect_center_bbox(result, score_thr):
                 pass
             else:
                 tuple_list = []
-                tuple_list.append(int((bboxes[0]+bboxes[2])/2))
-                tuple_list.append(int((bboxes[1]+bboxes[3])/2))
+                tuple_list.append(int((bboxes[0]+bboxes[2])/2/scale))
+                tuple_list.append(int((bboxes[1]+bboxes[3])/2/scale))
                 # tuple_list.append(int(bboxes[0]))
                 # tuple_list.append(int(bboxes[1]))
                 center_list.append(tuple(tuple_list))
