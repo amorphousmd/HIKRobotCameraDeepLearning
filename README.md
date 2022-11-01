@@ -1,3 +1,5 @@
 # Incomplete
-Everything is set, just run the GUITestVer1.py file
-![Pic](https://user-images.githubusercontent.com/20887245/196675574-3f17b872-bd46-4a93-beb4-7997f92efa3a.png) 
+Everything is set, just run the GUITestVer2.py file
+![Demo1](https://user-images.githubusercontent.com/20887245/199195068-6d43a195-4f18-4b64-8a21-d2a5d9ef8022.png)
+![Demo2](https://user-images.githubusercontent.com/20887245/199199708-f6223c78-6ee0-410a-a1a8-cd327b99ffd9.gif)
+
