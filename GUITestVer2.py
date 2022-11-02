@@ -43,6 +43,19 @@ def ToHexStr(num):
     hexStr = chaDic.get(num, str(num)) + hexStr
     return hexStr
 
+def swapTuple2(tuple2):
+    try:
+        assert type(tuple2) is tuple
+    except AssertionError:
+        return 0
+    try:
+        assert len(tuple2) == 2
+    except AssertionError:
+        return 0
+    tempList = list(tuple2)
+    swappedList = (tempList[1], tempList[0])
+    returnTuple = tuple(swappedList)
+    return returnTuple
 
 def rescale(tuple, scale):
     returnTuple = ()
@@ -82,7 +95,7 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.btnClose.clicked.connect(self.close_device)
         self.bnStart.clicked.connect(self.start_grabbing)
         self.bnStop.clicked.connect(self.stop_grabbing)
-        # self.bnSave.clicked.connect(self.saveImage)
+        self.bnSave.clicked.connect(self.saveImage)
         self.btnGetParam.clicked.connect(self.get_param)
         self.btnSetParam.clicked.connect(self.set_param)
         self.radioContinueMode.clicked.connect(self.set_continue_mode)
@@ -112,8 +125,9 @@ class Logic(QMainWindow, Ui_MainWindow):
 
     def getPos(self, event):
         if not self.calculateDistance:
-            x = round(event.pos().x() /1000 * 2592)
-            y = round(event.pos().y() /1000 * 2592)
+            # Swapping x and y according to the convention
+            y = round(event.pos().x() /1000 * 2592)
+            x = round(event.pos().y() /1000 * 2592)
             self.editPixCoordX.setText(str(x))
             self.editPixCoordY.setText(str(y))
             convertTuple = (x, y)
@@ -125,8 +139,8 @@ class Logic(QMainWindow, Ui_MainWindow):
             self.editPixelCoordY.setText(str(convertedCoords[1]))
             self.calculateDistance = True
         else:
-            x = round(event.pos().x() / 1000 * 2592)
-            y = round(event.pos().y() / 1000 * 2592)
+            y = round(event.pos().x() / 1000 * 2592)
+            x = round(event.pos().y() / 1000 * 2592)
             self.editPixCoordX.setText(str(x))
             self.editPixCoordY.setText(str(y))
             convertTuple = (x, y)
@@ -146,11 +160,11 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.editLoadedCalib.setText(filename)
 
     def runCameraCalib(self):
-        CameraUtils.runCalibration((10, 7), (2592, 1944), 23.7)
+        CameraUtils.runCalibration((10, 7), (2592, 1944), 25)
 
     def saveImage(self):
         self.filename = QFileDialog.getSaveFileName(filter="JPG(*.jpg);;PNG(*.png);;TIFF(*.tiff);;BMP(*.bmp)")[0]
-        cv2.imwrite(self.filename, self.img)
+        cv2.imwrite(self.filename, self.imgSave)
         print('Image saved as:', self.filename)
 
     def select_model(self, i):
@@ -225,7 +239,7 @@ class Logic(QMainWindow, Ui_MainWindow):
             TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
             for center in center_list:
-                rescaledCenter = rescale(center, self.scaleFactor)
+                rescaledCenter = rescale(swapTuple2(center), self.scaleFactor)
                 displayLabel = cv2.circle(displayLabel, rescaledCenter, 4, (0, 0, 255), -1)
         # self.set_image(displayLabel)
         return displayLabel
@@ -375,6 +389,7 @@ class Logic(QMainWindow, Ui_MainWindow):
         global obj_cam_operation
         while True:
             self.img = obj_cam_operation.get_np_image()
+            self.imgSave = self.img
             try:
                 self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
             except cv2.error:
@@ -582,7 +597,7 @@ class Logic(QMainWindow, Ui_MainWindow):
             TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
 
             for center in center_list:
-                displayLabel = cv2.circle(displayLabel, center, 10, (0, 0, 255), -1)
+                displayLabel = cv2.circle(displayLabel, swapTuple2(center), 10, (0, 0, 255), -1)
         else:
             center_list = detect_center_bbox(result, score_threshold)
             print(center_list)

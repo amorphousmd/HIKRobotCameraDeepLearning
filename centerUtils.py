@@ -110,10 +110,10 @@ def detect_center_bbox(result, score_thr, scale):
                 pass
             else:
                 tuple_list = []
+                # Return form of an inference: [x_top_left, y_top_left, x_botright, y_botright, confidence]
+                # x goes right and y go down (reverse of normal convention)
+                tuple_list.append(int((bboxes[1]+bboxes[3])/2/scale))  #
                 tuple_list.append(int((bboxes[0]+bboxes[2])/2/scale))
-                tuple_list.append(int((bboxes[1]+bboxes[3])/2/scale))
-                # tuple_list.append(int(bboxes[0]))
-                # tuple_list.append(int(bboxes[1]))
                 center_list.append(tuple(tuple_list))
     return center_list
 

@@ -52,6 +52,9 @@ class Ui_MainWindow(object):
         self.bnStart = QtWidgets.QPushButton(self.groupBox_2)
         self.bnStart.setGeometry(QtCore.QRect(20, 220, 103, 29))
         self.bnStart.setObjectName("bnStart")
+        self.bnSave = QtWidgets.QPushButton(self.groupBox_2)
+        self.bnSave.setGeometry(QtCore.QRect(20, 250, 103, 29))
+        self.bnSave.setObjectName("bnSave")
         self.label_2 = QtWidgets.QLabel(self.groupBox_2)
         self.label_2.setGeometry(QtCore.QRect(20, 180, 101, 21))
         self.label_2.setObjectName("label_2")
@@ -253,6 +256,7 @@ class Ui_MainWindow(object):
         self.btnClose.clicked.connect(self.displayLabel.clear)
         self.bnStart.clicked.connect(self.displayLabel.clear)
         self.bnStop.clicked.connect(self.displayLabel.clear)
+        self.bnSave.clicked.connect(self.displayLabel.clear)
         self.btnGetParam.clicked.connect(self.displayLabel.clear)
         self.btnSetParam.clicked.connect(self.displayLabel.clear)
         self.radioContinueMode.clicked['bool'].connect(self.displayLabel.clear)
@@ -272,7 +276,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "HIKRobotDeepLearning"))
         self.groupBox.setTitle(_translate("MainWindow", "DISPLAY"))
         self.groupBox_2.setTitle(_translate("MainWindow", "Camera setting"))
         self.btnEnum.setText(_translate("MainWindow", "Enum"))
@@ -281,6 +285,7 @@ class Ui_MainWindow(object):
         self.radioContinueMode.setText(_translate("MainWindow", "Continue"))
         self.radioTriggerMode.setText(_translate("MainWindow", "Trigger"))
         self.bnStart.setText(_translate("MainWindow", "Start"))
+        self.bnSave.setText(_translate("MainWindow", "Save"))
         self.label_2.setText(_translate("MainWindow", "Time trigger(s):"))
         self.bnStop.setText(_translate("MainWindow", "Stop"))
         self.groupBox_3.setTitle(_translate("MainWindow", "Parameters"))

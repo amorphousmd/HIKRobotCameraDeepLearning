@@ -21,25 +21,28 @@ def zeroExtend(inputList):
 
 
 def clientUtilities(data):
-    PORT = 5050
-    # SERVER = "192.168.1.1"
-    SERVER = "127.0.0.1"
-    ADDR = (SERVER, PORT)
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(ADDR)
+    if not data:
+        return
+    else:
+        PORT = 5050
+        # SERVER = "192.168.1.1"
+        SERVER = "127.0.0.1"
+        ADDR = (SERVER, PORT)
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect(ADDR)
 
-    def send(msg):
-        # HEADER = 64
-        FORMAT = 'utf-8'
-        message = msg.encode(FORMAT)
-        # msg_length = len(message)
-        # send_length = str(msg_length).encode(FORMAT)
-        # send_length += b' ' * (HEADER - len(send_length))
-        # client.send(send_length)
-        client.send(message)
+        def send(msg):
+            # HEADER = 64
+            FORMAT = 'utf-8'
+            message = msg.encode(FORMAT)
+            # msg_length = len(message)
+            # send_length = str(msg_length).encode(FORMAT)
+            # send_length += b' ' * (HEADER - len(send_length))
+            # client.send(send_length)
+            client.send(message)
 
-    send(createData(zeroExtend(data)))
-    client.close()
+        send(createData(zeroExtend(data)))
+        client.close()
 
 
 def sendData(dataList):

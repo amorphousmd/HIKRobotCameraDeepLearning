@@ -109,12 +109,14 @@ def runCalibration(chessboardSize, frameSize, chessboardSquareMM):
 
     # Get imgpoints (the corners of the chessboard)
     for image in images:
-
+        print('Working on:', image)
         img = cv.imread(image)
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
         # Find the chess board corners
+
         ret, corners = cv.findChessboardCorners(gray, chessboardSize, None)
+
 
         # If found, add object points, image points (after refining them)
         if ret:
@@ -123,17 +125,17 @@ def runCalibration(chessboardSize, frameSize, chessboardSquareMM):
             imgpoints.append(corners)
 
             # //////////////// COMMENT THIS SECTION IF YOU DON'T WANT TO SEE CALIB IMAGES ///////////
-            # cv.drawChessboardCorners(img, chessboardSize, corners2, ret)
-            #
-            # scale_percent = 60  # percent of original size
-            # width = int(img.shape[1] * scale_percent / 100)
-            # height = int(img.shape[0] * scale_percent / 100)
-            # dim = (width, height)
-            #
-            # # resize image
-            # resized = cv.resize(img, dim, interpolation=cv.INTER_AREA)
-            # cv.imshow('img', resized)
-            # cv.waitKey(100)
+            cv.drawChessboardCorners(img, chessboardSize, corners2, ret)
+
+            scale_percent = 40  # percent of original size
+            width = int(img.shape[1] * scale_percent / 100)
+            height = int(img.shape[0] * scale_percent / 100)
+            dim = (width, height)
+
+            # resize image
+            resized = cv.resize(img, dim, interpolation=cv.INTER_AREA)
+            cv.imshow('img', resized)
+            cv.waitKey(1000)
             # ///////////////////////////////////////////////////////////////////////////////////////
 
     cv.destroyAllWindows()
@@ -224,6 +226,6 @@ def convertPixelToWorld(list):
 if __name__ == '__main__':
     testList = [(1302, 1104), (1207, 1268), (1420, 1580), (1284, 1547)]
     print(testList)
-    runCalibration((7,4), (640, 480), 22)
+    runCalibration((10,7), (2592, 1944), 25)
     pixelToWorldMatrix = np.load('./calibSaves/PtWMatrix.npy')
     print(convertPixelToWorld(testList))
