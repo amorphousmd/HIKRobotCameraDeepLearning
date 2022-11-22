@@ -6,3 +6,4 @@ mmdetection
 *.png
 *.jpg
 test.py
+TCPIPTest/
