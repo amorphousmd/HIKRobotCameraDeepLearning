@@ -1,3 +1,4 @@
+# Reserved in case of change in communication convention (Currently this PC is the server)
 import socket
 import threading
 
@@ -24,9 +25,9 @@ def clientUtilities(data):
     if not data:
         return
     else:
-        PORT = 5050
+        PORT = 3000
         # SERVER = "192.168.1.1"
-        SERVER = "127.0.0.1"
+        SERVER = "192.168.1.100"
         ADDR = (SERVER, PORT)
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect(ADDR)

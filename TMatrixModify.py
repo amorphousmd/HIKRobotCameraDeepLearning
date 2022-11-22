@@ -16,7 +16,7 @@ transformationMatrix = np.linalg.inv(transformationMatrixpre)
 centerPointW = (0, 0, 1)
 centerDisplacementP = transformationMatrix @ centerPointW
 print(centerDisplacementP)
-testPoint = (500, 0, 1)
+testPoint = (1000, 0, 1)
 test_xy_angle = transformationMatrix @ testPoint
 print(test_xy_angle)
 rotationTriangle = test_xy_angle - centerDisplacementP

@@ -21,6 +21,7 @@ import os
 import time
 import CameraUtils
 import TCPIP
+import serverUtilities
 
 def TxtWrapBy(start_str, end, all):
     start = all.find(start_str)
@@ -89,13 +90,14 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
         self.cfg.model.mask_head.num_classes = 1
         self.polygonMask = True
+        self.ignoreFrame = False
 
         self.btnEnum.clicked.connect(self.enum_devices)
         self.btnOpen.clicked.connect(self.open_device)
         self.btnClose.clicked.connect(self.close_device)
         self.bnStart.clicked.connect(self.start_grabbing)
         self.bnStop.clicked.connect(self.stop_grabbing)
-        self.bnSave.clicked.connect(self.saveImage)
+        # self.bnSave.clicked.connect(self.saveImage)
         self.btnGetParam.clicked.connect(self.get_param)
         self.btnSetParam.clicked.connect(self.set_param)
         self.radioContinueMode.clicked.connect(self.set_continue_mode)
@@ -108,11 +110,49 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.btnLoadImage.clicked.connect(self.loadImage)
         self.comboModels.currentIndexChanged.connect(self.select_model)
         self.btnStartCamCalibTest.clicked.connect(self.startCamCalibTest)
+        self.btnStartServer.clicked.connect(self.start_server)
+        self.btnConnAddr.clicked.connect(self.print_values)
+        self.btnSendTCPIP.clicked.connect(self.send_data)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def __init__(self, *args, **kwargs):
         QMainWindow.__init__(self, *args, **kwargs)
         self.setupUi(self)
+    def start_server(self):
+        serverUtilities.establish_connection()
+
+    def print_values(self):
+        print('')
+        print(serverUtilities.conn)
+        print(serverUtilities.addr)
+
+    def send_data(self):
+        if self.btnCustom.isChecked():
+            str_data = self.textEdit.toPlainText()
+            list_data = str_data.split(" ")
+            temp_tuple = ()
+            send_data = []
+            i = 0
+            for str_num in list_data:
+                int_num = int(str_num)
+                if i == 1:
+                    i = 0
+                    temp_tuple = temp_tuple + (int_num, )
+                    send_data.append(temp_tuple)
+                    temp_tuple = ()
+                else:
+                    temp_tuple = temp_tuple + (int_num, )
+                    i += 1
+
+        if self.btnOption2.isChecked():
+            send_data = []
+        if self.btnOption3.isChecked():
+            send_data = [(1, 2), (3, 4)]
+        if self.btnOption4.isChecked():
+            send_data = [(1, 2), (3, 4), (5, 6)]
+
+        thread = threading.Thread(target=serverUtilities.send_data_thread, args=[send_data])
+        thread.start()
 
     def startCamCalibTest(self):
         self.filename = QFileDialog.getOpenFileName(directory="./calibImages20221020")[0]
@@ -164,6 +204,7 @@ class Logic(QMainWindow, Ui_MainWindow):
 
     def saveImage(self):
         self.filename = QFileDialog.getSaveFileName(filter="JPG(*.jpg);;PNG(*.png);;TIFF(*.tiff);;BMP(*.bmp)")[0]
+        self.imgSave = cv2.cvtColor(self.imgSave, cv2.COLOR_BGR2RGB)
         cv2.imwrite(self.filename, self.imgSave)
         print('Image saved as:', self.filename)
 
@@ -225,7 +266,9 @@ class Logic(QMainWindow, Ui_MainWindow):
             print(center_list)
             print('\nWorld Coordinates:\n')
             print(CameraUtils.convertPixelToWorld(center_list))
-            TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+            # TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+            thread = threading.Thread(target=serverUtilities.send_data_thread, args=[CameraUtils.convertPixelToWorld(center_list)])
+            thread.start()
 
             for center in center_list:
                 displayLabel = cv2.circle(displayLabel, center, 4, (0, 0, 255), -1)
@@ -236,7 +279,9 @@ class Logic(QMainWindow, Ui_MainWindow):
             print(center_list)
             print('\nWorld Coordinates:\n')
             print(CameraUtils.convertPixelToWorld(center_list))
-            TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+            # TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+            thread = threading.Thread(target=serverUtilities.send_data_thread, args=[CameraUtils.convertPixelToWorld(center_list)])
+            thread.start()
 
             for center in center_list:
                 rescaledCenter = rescale(swapTuple2(center), self.scaleFactor)
@@ -382,35 +427,50 @@ class Logic(QMainWindow, Ui_MainWindow):
             isGrabbing = True
             self.enable_controls()
             self.Timer.start(int(self.editTimeTrigger.toPlainText()))
+            grab_thread = threading.Thread(target=self.thread)
+            grab_thread.start()
+            self.trigger_once()
+            return
         grab_thread = threading.Thread(target=self.thread)
         grab_thread.start()
+
 
     def thread(self):
         global obj_cam_operation
         while True:
+            # This is the function that will run twice (more depend on how many frame burst you set)
+            # I modified it as such it will ignore 1 frame every time
             self.img = obj_cam_operation.get_np_image()
-            self.imgSave = self.img
-            try:
-                self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
-            except cv2.error:
-                break
+            if self.ignoreFrame:
+                self.ignoreFrame = False
+                continue
+            else:
+                self.imgSave = self.img
+                try:
+                    self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
+                except cv2.error:
+                    break
 
-            if self.run:
-                if self.editScoreThreshold.toPlainText() == "":
-                    score_threshold = 0.5  # Default threshold Value = 0.5
-                else:
-                    score_threshold = float(self.editScoreThreshold.toPlainText())
-                temp = self.img
-                width = int(temp.shape[1] * self.scaleFactor)
-                height = int(temp.shape[0] * self.scaleFactor)
-                dim = (width, height)
+                if self.run:
+                    if self.editScoreThreshold.toPlainText() == "":
+                        score_threshold = 0.5  # Default threshold Value = 0.5
+                    else:
+                        score_threshold = float(self.editScoreThreshold.toPlainText())
+                    temp = self.img
+                    width = int(temp.shape[1] * self.scaleFactor)
+                    height = int(temp.shape[0] * self.scaleFactor)
+                    dim = (width, height)
 
-                # resize image
-                temp = cv2.resize(temp, dim, interpolation=cv2.INTER_AREA)
-                self.img = self.detect(temp, score_threshold)
-            self.set_image(self.img)
-            if isGrabbing == False:
-                break
+                    # resize image
+                    temp = cv2.resize(temp, dim, interpolation=cv2.INTER_AREA)
+                    self.img = self.detect(temp, score_threshold)
+                self.set_image(self.img)
+                # stop_time = time.time()
+                # delay_time = stop_time - start_time
+                self.label_4.setText(str(1))
+                self.ignoreFrame = True
+                if isGrabbing == False:
+                    break
 
         # en:Stop grab image
 
@@ -447,7 +507,6 @@ class Logic(QMainWindow, Ui_MainWindow):
 
         self.enable_controls()
 
-        # ch:设置触发模式 | en:set trigger mode
 
     def set_continue_mode(self):
         global is_trigger_mode
@@ -594,21 +653,26 @@ class Logic(QMainWindow, Ui_MainWindow):
             print(center_list)
             print('\nWorld Coordinates:\n')
             print(CameraUtils.convertPixelToWorld(center_list))
-            TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+            # TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+            thread = threading.Thread(target=serverUtilities.send_data_thread, args=[center_list])
+            thread.start()
 
             for center in center_list:
                 displayLabel = cv2.circle(displayLabel, swapTuple2(center), 10, (0, 0, 255), -1)
         else:
-            center_list = detect_center_bbox(result, score_threshold)
+            center_list = detect_center_bbox(result, 0.8, 1)
             print(center_list)
             print('\nPixel Coordinates:\n')
             print(center_list)
             print('\nWorld Coordinates:\n')
             print(CameraUtils.convertPixelToWorld(center_list))
-            TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+            # TCPIP.sendData(CameraUtils.convertPixelToWorld(center_list))
+            thread = threading.Thread(target=serverUtilities.send_data_thread, args=[center_list])
+            thread.start()
 
             for center in center_list:
-                displayLabel = cv2.circle(displayLabel, center, 4, (0, 0, 255), -1)
+                rescaledCenter = rescale(swapTuple2(center), 1)
+                displayLabel = cv2.circle(displayLabel, rescaledCenter, 4, (0, 0, 255), -1)
         self.set_image(displayLabel)
 
 if __name__ == "__main__":
