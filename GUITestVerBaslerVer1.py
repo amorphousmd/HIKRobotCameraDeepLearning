@@ -347,32 +347,12 @@ class Logic(QMainWindow, Ui_MainWindow):
         # en:open device
 
     def open_device(self):
-        global deviceList
-        global nSelCamIndex
-        global obj_cam_operation
         global isOpen
-        if isOpen:
-            QMessageBox.warning(QMainWindow(), "Error", 'Camera is Running!', QMessageBox.Ok)
-            return MV_E_CALLORDER
+        baslerCam.Open()
+        isOpen = True
+        print("Camera Opened")
+        self.radioContinueMode.setChecked(1)
 
-        nSelCamIndex = ui.comboDevices.currentIndex()
-        if nSelCamIndex < 0:
-            QMessageBox.warning(QMainWindow(), "Error", 'Please select a camera!', QMessageBox.Ok)
-            return MV_E_CALLORDER
-
-        obj_cam_operation = CameraOperation(cam, deviceList, nSelCamIndex)
-        ret = obj_cam_operation.Open_device()
-        if 0 != ret:
-            strError = "Open device failed ret:" + ToHexStr(ret)
-            QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
-            isOpen = False
-        else:
-            self.set_software_trigger_mode()
-
-            self.get_param()
-
-            isOpen = True
-            self.enable_controls()
 
         # en:Start grab image
 
@@ -392,10 +372,7 @@ class Logic(QMainWindow, Ui_MainWindow):
         if self.radioTriggerMode.isChecked():
             print(self.editTimeTrigger.toPlainText())
             isGrabbing = True
-            self.enable_controls()
             self.Timer.start(int(self.editTimeTrigger.toPlainText()))
-            grab_thread = threading.Thread(target=self.thread)
-            grab_thread.start()
             self.trigger_once()
             return
         grab_thread = threading.Thread(target=self.thread)
@@ -443,29 +420,28 @@ class Logic(QMainWindow, Ui_MainWindow):
         global isOpen
         global isGrabbing
         global obj_cam_operation
+        global baslerCam
 
         if isOpen:
-            obj_cam_operation.Close_device()
+            baslerCam.Close()
             isOpen = False
 
         isGrabbing = False
 
-        self.enable_controls()
-
-
     def set_continue_mode(self):
-        global is_trigger_mode
-        strError = None
-
-        ret = obj_cam_operation.Set_trigger_mode(False)
-        if ret != 0:
-            strError = "Set continue mode failed ret:" + ToHexStr(ret) + " mode is " + str(is_trigger_mode)
-            QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
-        else:
-            self.radioContinueMode.setChecked(True)
-            self.radioTriggerMode.setChecked(False)
-            # ui.bnSoftwareTrigger.setEnabled(False)
-
+        self.Timer.stop()
+        # global is_trigger_mode
+        # strError = None
+        #
+        # ret = obj_cam_operation.Set_trigger_mode(False)
+        # if ret != 0:
+        #     strError = "Set continue mode failed ret:" + ToHexStr(ret) + " mode is " + str(is_trigger_mode)
+        #     QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
+        # else:
+        #     self.radioContinueMode.setChecked(True)
+        #     self.radioTriggerMode.setChecked(False)
+        #     # ui.bnSoftwareTrigger.setEnabled(False)
+        pass
         # en:set software trigger mode
 
     def set_software_trigger_mode(self):
@@ -473,24 +449,37 @@ class Logic(QMainWindow, Ui_MainWindow):
         global isGrabbing
         global obj_cam_operation
 
-        ret = obj_cam_operation.Set_trigger_mode(True)
-        if ret != 0:
-            strError = "Set trigger mode failed ret:" + ToHexStr(ret)
-            QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
-        else:
-
-            self.radioContinueMode.setChecked(False)
-            self.radioTriggerMode.setChecked(True)
-            # ui.bnSoftwareTrigger.setEnabled(isGrabbing)
+        # ret = obj_cam_operation.Set_trigger_mode(True)
+        # if ret != 0:
+        #     strError = "Set trigger mode failed ret:" + ToHexStr(ret)
+        #     QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
+        # else:
+        #
+        #     self.radioContinueMode.setChecked(False)
+        #     self.radioTriggerMode.setChecked(True)
+        #     # ui.bnSoftwareTrigger.setEnabled(isGrabbing)
 
         # en:set trigger software
 
     def trigger_once(self):
-        ret = obj_cam_operation.Trigger_once()
-        if ret != 0:
-            # strError = "TriggerSoftware failed ret:" + ToHexStr(ret)
-            # QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
-            print('TriggerSoffware failed ret:' + ToHexStr(ret))
+        grabResult = baslerCam.RetrieveResult(5000, py.TimeoutHandling_ThrowException)
+
+        try:
+            check = grabResult.GrabSucceeded()
+        except:
+            return
+        if check:
+            # Access the image data
+            image = converter.Convert(grabResult)
+            self.img = image.GetArray()
+            self.set_image(self.img)
+
+        grabResult.Release()
+        # ret = obj_cam_operation.Trigger_once()
+        # if ret != 0:
+        #     # strError = "TriggerSoftware failed ret:" + ToHexStr(ret)
+        #     # QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
+        #     print('TriggerSoffware failed ret:' + ToHexStr(ret))
 
         # en:save image
 
