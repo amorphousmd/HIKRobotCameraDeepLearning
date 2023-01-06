@@ -3,6 +3,7 @@ import math
 from Ui_Design import *
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import *
+from PyQt5.QtWidgets import QMessageBox
 from Camera_SDK.CamOperation_class import CameraOperation
 from MvCameraControl_class import *
 from MvErrorDefine_const import *
@@ -103,6 +104,7 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.Timer.timeout.connect(self.trigger_once)
         self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
         self.cfg.model.mask_head.num_classes = 1
+        self.ignoreEvent = False
         self.polygonMask = True
         self.ignoreFrame = False
 
@@ -129,9 +131,20 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.btnSendTCPIP.clicked.connect(self.send_data)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
+        app.aboutToQuit.connect(self.closeEvent)
+
+
     def __init__(self, *args, **kwargs):
         QMainWindow.__init__(self, *args, **kwargs)
         self.setupUi(self)
+
+    def closeEvent(self):
+        if(self.ignoreEvent):
+            return
+        self.stop_grabbing()
+        self.close_device()
+        self.ignoreEvent = True
+
     def start_server(self):
         serverUtilities.establish_connection()
 
@@ -348,8 +361,12 @@ class Logic(QMainWindow, Ui_MainWindow):
 
     def open_device(self):
         global isOpen
+        global baslerCam
         baslerCam.Open()
         isOpen = True
+        self.edtExposureTime.setText("{0:.2f}".format(baslerCam.ExposureTime.Value))
+        self.edtGain.setText("{0:.2f}".format(baslerCam.Gain.Value))
+        self.edtFrameRate.setText("{0:.2f}".format(baslerCam.ResultingFrameRate.Value))
         print("Camera Opened")
         self.radioContinueMode.setChecked(1)
 
@@ -367,8 +384,10 @@ class Logic(QMainWindow, Ui_MainWindow):
         #     strError = "Start grabbing failed ret:" + ToHexStr(ret)
         #     QMessageBox.warning(mainWindow, "Error", strError, QMessageBox.Ok)
         # else:
+
         isGrabbing = True
         baslerCam.StartGrabbing(py.GrabStrategy_LatestImageOnly)
+
         if self.radioTriggerMode.isChecked():
             print(self.editTimeTrigger.toPlainText())
             isGrabbing = True
@@ -404,7 +423,8 @@ class Logic(QMainWindow, Ui_MainWindow):
     def stop_grabbing(self):
         global baslerCam
         global isGrabbing
-        baslerCam.StopGrabbing()
+        if isGrabbing:
+            baslerCam.StopGrabbing()
         isGrabbing = False
         # if ret != 0:
         #     strError = "Stop grabbing failed ret:" + ToHexStr(ret)
@@ -427,6 +447,9 @@ class Logic(QMainWindow, Ui_MainWindow):
             isOpen = False
 
         isGrabbing = False
+        self.edtExposureTime.setText("")
+        self.edtGain.setText("")
+        self.edtFrameRate.setText("")
 
     def set_continue_mode(self):
         self.Timer.stop()
@@ -506,15 +529,19 @@ class Logic(QMainWindow, Ui_MainWindow):
         # en:set param
 
     def set_param(self):
+        global baslerCam
         frame_rate = self.edtFrameRate.toPlainText()
         exposure = self.edtExposureTime.toPlainText()
         gain = self.edtGain.toPlainText()
-        ret = obj_cam_operation.Set_parameter(frame_rate, exposure, gain)
-        if ret != MV_OK:
-            strError = "Set param failed ret:" + ToHexStr(ret)
-            QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
+        baslerCam.AcquisitionFrameRateEnable.SetValue(True)
+        baslerCam.AcquisitionFrameRate.SetValue(float(frame_rate))
+        baslerCam.ExposureTime.SetValue(float(exposure))
+        baslerCam.Gain.SetValue(float(gain))
+        self.edtExposureTime.setText("{0:.2f}".format(baslerCam.ExposureTime.Value))
+        self.edtGain.setText("{0:.2f}".format(baslerCam.Gain.Value))
+        self.edtFrameRate.setText("{0:.2f}".format(baslerCam.ResultingFrameRate.Value))
 
-        return MV_OK
+
 
     def get_image(self):
         global obj_cam_operation
