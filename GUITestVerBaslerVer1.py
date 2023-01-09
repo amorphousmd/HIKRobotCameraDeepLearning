@@ -389,11 +389,17 @@ class Logic(QMainWindow, Ui_MainWindow):
         baslerCam.StartGrabbing(py.GrabStrategy_LatestImageOnly)
 
         if self.radioTriggerMode.isChecked():
+            if self.editTimeTrigger.toPlainText() == "":
+                print('Input camera trigger time')
+                baslerCam.StopGrabbing()
+                return
             print(self.editTimeTrigger.toPlainText())
             isGrabbing = True
             self.Timer.start(int(self.editTimeTrigger.toPlainText()))
             self.trigger_once()
             return
+
+        # This segment down here only run if you select continuous mode
         grab_thread = threading.Thread(target=self.thread)
         grab_thread.start()
 
@@ -452,6 +458,9 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.edtFrameRate.setText("")
 
     def set_continue_mode(self):
+        global isGrabbing
+        if isGrabbing:
+            self.stop_grabbing()
         self.Timer.stop()
         # global is_trigger_mode
         # strError = None
@@ -472,6 +481,9 @@ class Logic(QMainWindow, Ui_MainWindow):
         global isGrabbing
         global obj_cam_operation
 
+        global isGrabbing
+        if isGrabbing:
+            self.stop_grabbing()
         # ret = obj_cam_operation.Set_trigger_mode(True)
         # if ret != 0:
         #     strError = "Set trigger mode failed ret:" + ToHexStr(ret)
@@ -496,6 +508,30 @@ class Logic(QMainWindow, Ui_MainWindow):
             image = converter.Convert(grabResult)
             self.img = image.GetArray()
             self.set_image(self.img)
+        self.imgSave = self.img
+        try:
+            self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
+        except cv2.error:
+            print('Conversion failed. Returning...')
+            return
+
+        if self.run:
+            if self.editScoreThreshold.toPlainText() == "":
+                score_threshold = 0.5  # Default threshold Value = 0.5
+            else:
+                score_threshold = float(self.editScoreThreshold.toPlainText())
+            temp = self.img
+            width = int(temp.shape[1] * self.scaleFactor)
+            height = int(temp.shape[0] * self.scaleFactor)
+            dim = (width, height)
+
+            # resize image
+            temp = cv2.resize(temp, dim, interpolation=cv2.INTER_AREA)
+            self.img = self.detect(temp, score_threshold)
+        self.set_image(self.img)
+        # stop_time = time.time()
+        # delay_time = stop_time - start_time
+        self.label_4.setText(str(1))
 
         grabResult.Release()
         # ret = obj_cam_operation.Trigger_once()
