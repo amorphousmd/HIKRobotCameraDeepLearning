@@ -112,8 +112,9 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.btnOpen.clicked.connect(self.open_device)
         self.btnClose.clicked.connect(self.close_device)
         self.bnStart.clicked.connect(self.start_grabbing)
+        self.bnSingle.clicked.connect(self.single_grab)
         self.bnStop.clicked.connect(self.stop_grabbing)
-        # self.bnSave.clicked.connect(self.saveImage)
+        self.bnSave.clicked.connect(self.saveImage)
         self.btnGetParam.clicked.connect(self.get_param)
         self.btnSetParam.clicked.connect(self.set_param)
         self.radioContinueMode.clicked.connect(self.set_continue_mode)
@@ -230,7 +231,10 @@ class Logic(QMainWindow, Ui_MainWindow):
         CameraUtils.runCalibration((10, 7), (2592, 1944), 25)
 
     def saveImage(self):
-        self.filename = QFileDialog.getSaveFileName(filter="JPG(*.jpg);;PNG(*.png);;TIFF(*.tiff);;BMP(*.bmp)")[0]
+        try:
+            self.filename = QFileDialog.getSaveFileName(filter="JPG(*.jpg);;PNG(*.png);;TIFF(*.tiff);;BMP(*.bmp)")[0]
+        except:
+            return
         self.imgSave = cv2.cvtColor(self.imgSave, cv2.COLOR_BGR2RGB)
         cv2.imwrite(self.filename, self.imgSave)
         print('Image saved as:', self.filename)
@@ -671,6 +675,28 @@ class Logic(QMainWindow, Ui_MainWindow):
                 rescaledCenter = rescale(swapTuple2(center), 1)
                 displayLabel = cv2.circle(displayLabel, rescaledCenter, 4, (0, 0, 255), -1)
         self.set_image(displayLabel)
+
+    def single_grab(self):
+        global obj_cam_operation
+        global isGrabbing
+        global cam
+        global baslerCam
+        print('dasadad')
+        baslerCam.StartGrabbing(py.GrabStrategy_LatestImageOnly)
+        grabResult = baslerCam.RetrieveResult(5000, py.TimeoutHandling_ThrowException)
+
+        try:
+            check = grabResult.GrabSucceeded()
+        except:
+            return
+        if check:
+            # Access the image data
+            image = converter.Convert(grabResult)
+            self.img = image.GetArray()
+            self.set_image(self.img)
+        self.imgSave = self.img
+        grabResult.Release()
+        baslerCam.StopGrabbing()
 
 if __name__ == "__main__":
     import sys
