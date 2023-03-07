@@ -7,3 +7,9 @@ mmdetection
 *.jpg
 test.py
 TCPIPTest/
+*.trt
+*.trt
+*.pyc
+*.pyc
+TRT_Weights/Crackers2YOLOv7.trt
+TRT_Weights/Crackers2YOLOv7.trt
