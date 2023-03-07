@@ -13,3 +13,4 @@ TCPIPTest/
 *.pyc
 TRT_Weights/Crackers2YOLOv7.trt
 TRT_Weights/Crackers2YOLOv7.trt
+*.pyc
