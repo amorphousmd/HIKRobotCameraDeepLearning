@@ -340,8 +340,8 @@ class CameraOperation:
                 cdll.msvcrt.memcpy(byref(self.buf_save_image), self.buf_grab_image, self.st_frame_info.nFrameLen)
                 self.buf_lock.release()
 
-                print("get one frame: Width[%d], Height[%d], nFrameNum[%d]"
-                      % (self.st_frame_info.nWidth, self.st_frame_info.nHeight, self.st_frame_info.nFrameNum))
+                # print("get one frame: Width[%d], Height[%d], nFrameNum[%d]"
+                #       % (self.st_frame_info.nWidth, self.st_frame_info.nHeight, self.st_frame_info.nFrameNum))
                 # 释放缓存
                 # self.obj_cam.MV_CC_FreeImageBuffer(stOutFrame)
             else:
@@ -381,7 +381,7 @@ class CameraOperation:
                 buf_cache = (c_ubyte * stOutFrame.stFrameInfo.nFrameLen)()
             self.st_frame_info = stOutFrame.stFrameInfo
             cdll.msvcrt.memcpy(byref(buf_cache), stOutFrame.pBufAddr, self.st_frame_info.nFrameLen)
-            print("get one frame: Width[%d], Height[%d], nFrameNum[%d]" % (self.st_frame_info.nWidth, self.st_frame_info.nHeight, self.st_frame_info.nFrameNum))
+            # print("get one frame: Width[%d], Height[%d], nFrameNum[%d]" % (self.st_frame_info.nWidth, self.st_frame_info.nHeight, self.st_frame_info.nFrameNum))
             self.n_save_image_size = self.st_frame_info.nWidth * self.st_frame_info.nHeight * 3 + 2048
             if img_buff is None:
                 img_buff = (c_ubyte * self.n_save_image_size)()

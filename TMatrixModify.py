@@ -44,8 +44,8 @@ bottomRow = [0, 0, 1]
 rotationMatrix = np.vstack([rotationRectangle, bottomRow])
 print(rotationMatrix)
 transformationMatrix = transformationMatrix @ rotationMatrix
-
-np.save('./calibSaves/PtWMatrixModified.npy', np.linalg.inv(transformationMatrix))
+transformationMatrix = transformationMatrix + np.array([[0, 0, -140], [0, 0, 0], [0, 0, 0]])
+np.save('./calibSaves/PtWMatrixModified2.npy', np.linalg.inv(transformationMatrix))
 
 
 image = cv.imread('./Images/0.jpg')

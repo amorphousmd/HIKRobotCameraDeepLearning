@@ -1,6 +1,6 @@
 import math
-
-from Ui_Design import *
+import pycuda.driver as cuda
+from Ui_Design2 import *
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import *
 from Camera_SDK.CamOperation_class import CameraOperation
@@ -17,11 +17,73 @@ from mmdet.models import build_detector
 import numpy as np
 from centerUtils import detect_center
 from centerUtils import detect_center_bbox
+from seg.segment.inferences import SegmentInference, parse_opt
 import os
+from YOLOv7TensorRT import BaseEngine
+import YOLOv7TensorRT as yolov7
 import time
 import CameraUtils
 import TCPIP
 import serverUtilities
+
+class BaseEngineCracker(BaseEngine):
+    def __init__(self, engine_path, imgsz=(640, 640)):
+        super().__init__(engine_path, imgsz=(640, 640))
+        self.class_names = ['BAD', 'GOOD']
+        self.coord_list = []
+
+
+    def direct_inference(self, captured_image, conf=0.25):
+        self.coord_list = [] # Reset the coord list every time
+        origin_img = captured_image
+        origin_img = cv2.cvtColor(origin_img, cv2.COLOR_BGR2RGB)
+        img, ratio = yolov7.preproc(origin_img, self.imgsz, self.mean, self.std)
+        num, final_boxes, final_scores, final_cls_inds = self.infer(img)
+        # num: number of object detected
+        # final_boxes: Coordinates of the bounding boxes
+        # final scores: Confidence score of each object
+        # final_cls_inds: The position (index) of class in the list above (80 classes, count start at 0)
+        final_boxes = np.reshape(final_boxes, (-1, 4))  # Unknown number of rows and 4 columns
+        num = num[0]
+        if num > 0:
+            final_boxes, final_scores, final_cls_inds = final_boxes[:num] / ratio, final_scores[:num], final_cls_inds[
+                                                                                                       :num]
+            # final_boxes_bad = []
+            # final_scores_bad = []
+            # final_cls_inds_bad = []
+            # final_boxes_good = []
+            # final_scores_good = []
+            # final_cls_inds_good = []
+            for i in range(num):
+                if final_cls_inds[i] == 0:
+                    score_array = np.array([final_scores[i]])
+                    concatenated_array = np.concatenate((final_boxes[i], score_array))
+                    self.coord_list.append(concatenated_array)
+            #
+            #     if final_cls_inds[i] == 0:
+            #         final_boxes_good.append(final_boxes[i])
+            #         final_scores_good.append(final_scores[i])
+            #         final_cls_inds_good.append(final_cls_inds[i])
+            #
+            final_boxes_cracker = final_boxes
+            final_scores_cracker = final_scores
+            final_cls_inds_cracker = final_cls_inds
+
+            origin_img = yolov7.vis(origin_img, final_boxes_cracker, final_scores_cracker, final_cls_inds_cracker,
+                             conf=conf, class_names=self.class_names)
+        origin_img = cv2.cvtColor(origin_img, cv2.COLOR_RGB2BGR)
+        return origin_img
+
+def coord_list_to_center_list(coord_list, confidence):
+    centers = []
+    for coord in coord_list:
+        if coord[4] >= confidence:
+            x_left = coord[0]
+            y_left = coord[1]
+            x_right = coord[2]
+            y_right = coord[3]
+            centers.append([(x_left + x_right)/2, (y_left + y_right)/2])
+    return centers
 
 def TxtWrapBy(start_str, end, all):
     start = all.find(start_str)
@@ -81,9 +143,9 @@ isCalibMode = True
 
 class Logic(QMainWindow, Ui_MainWindow):
     def overwriteLogic(self):
-        self.btnRunInferenceVideo.setEnabled(False)
-        self.btnRunInference.setEnabled(False)
         self.model_name = 'solov2'  # Default model
+        self.model = 0  # Default model index
+        self.confidence = 0.5
         self.run = False
         self.Timer = QTimer()
         self.Timer.timeout.connect(self.trigger_once)
@@ -91,13 +153,16 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.cfg.model.mask_head.num_classes = 1
         self.polygonMask = True
         self.ignoreFrame = False
-
+        self.comboModels.setItemText(0, "YOLOv7")
+        self.comboModels.setItemText(1, 'YOLOv7Segmentation')
+        self.comboModels.setItemText(2, 'YOLOv7Tiny')
         self.btnEnum.clicked.connect(self.enum_devices)
         self.btnOpen.clicked.connect(self.open_device)
         self.btnClose.clicked.connect(self.close_device)
         self.bnStart.clicked.connect(self.start_grabbing)
         self.bnStop.clicked.connect(self.stop_grabbing)
-        # self.bnSave.clicked.connect(self.saveImage)
+        self.bnSave.clicked.connect(self.saveImage)
+        self.bnSingle.clicked.connect(self.single_grabbing)
         self.btnGetParam.clicked.connect(self.get_param)
         self.btnSetParam.clicked.connect(self.set_param)
         self.radioContinueMode.clicked.connect(self.set_continue_mode)
@@ -209,20 +274,30 @@ class Logic(QMainWindow, Ui_MainWindow):
         print('Image saved as:', self.filename)
 
     def select_model(self, i):
-        if i == 0:
-            print('Model: SOLOv2')
-            self.model_name = 'solov2'
-            self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
-            self.cfg.model.mask_head.num_classes = 1
-            self.polygonMask = True
-        if i == 1:
-            pass
-        if i == 2:
-            print('Model: YOLOX-s')
-            self.model_name = 'solov2'
-            self.cfg = Config.fromfile('mmdetection/configs/yolox/yolox_s_8x8_300e_coco.py')
-            self.cfg.model.bbox_head.num_classes = 1
-            self.polygonMask = False
+        # if i == 0:
+        #     print('Model: SOLOv2')
+        #     self.model_name = 'solov2'
+        #     self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
+        #     self.cfg.model.mask_head.num_classes = 1
+        #     self.polygonMask = True
+        # if i == 1:
+        #     pass
+        # if i == 2:
+        #     print('Model: YOLOX-s')
+        #     self.model_name = 'solov2'
+        #     self.cfg = Config.fromfile('mmdetection/configs/yolox/yolox_s_8x8_300e_coco.py')
+        #     self.cfg.model.bbox_head.num_classes = 1
+        #     self.polygonMask = False
+        def select_model(self, i):
+            if i == 0:
+                self.model = 0
+                print("[MODEL]: YOLOv7")
+            elif i == 1:
+                self.model = 1
+                print("[MODEL]: YOLOv7Segmentation")
+            elif i == 2:
+                self.model = 2
+                print("[MODEL]: YOLOv7Tiny")
 
     def load_model(self):
         self.checkpoint = QFileDialog.getOpenFileName()[0]
@@ -234,8 +309,6 @@ class Logic(QMainWindow, Ui_MainWindow):
         model.to('cuda')
         model.eval()
         self.model = model
-        self.btnRunInferenceVideo.setEnabled(True)
-        self.btnRunInference.setEnabled(True)
 
     def run_model(self):
         self.scaleFactor = float(self.editScoreThreshold_3.toPlainText())
@@ -410,6 +483,31 @@ class Logic(QMainWindow, Ui_MainWindow):
 
         # en:Start grab image
 
+    def single_grabbing(self):
+        global obj_cam_operation
+        global isGrabbing
+        global cam
+        # ret = obj_cam_operation.Start_grabbing(ui.widgetDisplay.winId())
+        # ret = cam.MV_CC_StartGrabbing()
+        # if ret != 0:
+        #     strError = "Start grabbing failed ret:" + ToHexStr(ret)
+        #     QMessageBox.warning(mainWindow, "Error", strError, QMessageBox.Ok)
+        # else:
+        ret = obj_cam_operation.Trigger_once()
+        if ret != 0:
+            # strError = "TriggerSoftware failed ret:" + ToHexStr(ret)
+            # QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
+            print('TriggerSoffware failed ret:' + ToHexStr(ret))
+        self.img = obj_cam_operation.get_np_image()
+
+        self.imgSave = self.img
+        try:
+            self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
+        except cv2.error:
+            return
+        self.set_image(self.img)
+        # stop_time = time.time()
+
     def start_grabbing(self):
         global obj_cam_operation
         global isGrabbing
@@ -425,12 +523,21 @@ class Logic(QMainWindow, Ui_MainWindow):
             isGrabbing = True
             self.enable_controls()
             self.Timer.start(int(self.editTimeTrigger.toPlainText()))
-            grab_thread = threading.Thread(target=self.thread)
+            grab_thread = threading.Thread(target=self.cuda_contextYOLO)
             grab_thread.start()
             self.trigger_once()
             return
         grab_thread = threading.Thread(target=self.thread)
         grab_thread.start()
+        # if self.model == 0:
+        #     self.cuda_contextYOLO()
+        # elif self.model == 1:
+        #     self.cuda_contextYOLOSegmentation()
+        # elif self.model == 2:
+        #     self.cuda_contextYOLOTiny()
+        # else:
+        #     print("Model not implemented yet")
+        #     return
 
 
     def thread(self):
@@ -452,27 +559,105 @@ class Logic(QMainWindow, Ui_MainWindow):
                 break
 
             if self.run:
-                if self.editScoreThreshold.toPlainText() == "":
-                    score_threshold = 0.5  # Default threshold Value = 0.5
+                if self.model == 0:
+                    self.cuda_contextYOLO()
+                elif self.model == 1:
+                    self.cuda_contextYOLOSegmentation()
+                elif self.model == 2:
+                    self.cuda_contextYOLOTiny()
                 else:
-                    score_threshold = float(self.editScoreThreshold.toPlainText())
-                temp = self.img
-                width = int(temp.shape[1] * self.scaleFactor)
-                height = int(temp.shape[0] * self.scaleFactor)
-                dim = (width, height)
-
-                # resize image
-                temp = cv2.resize(temp, dim, interpolation=cv2.INTER_AREA)
-                self.img = self.detect(temp, score_threshold)
+                    print("Model not implemented yet")
+                    print(self.model)
+                    return
             self.set_image(self.img)
             # stop_time = time.time()
             delay_time = stop_time - start_time
             self.label_4.setText(str(delay_time))
-            self.ignoreFrame = True
+            # self.ignoreFrame = True
             if isGrabbing == False:
                 break
 
         # en:Stop grab image
+    def cuda_contextYOLO(self):
+        cuda.init()
+        cuda_context = cuda.Device(0).make_context()
+        pred = BaseEngineCracker(engine_path='./TRT_Weights/Crackers2YOLOv7.trt')
+
+
+        while True:
+            self.img = obj_cam_operation.get_np_image()
+            self.imgSave = self.img
+            try:
+                self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
+            except cv2.error:
+                break
+
+            confidence = self.confidence
+            self.time_start = time.time()
+            origin_img = pred.direct_inference(self.img, conf=confidence)
+            self.time_detect = time.time() - self.time_start
+            center_list = coord_list_to_center_list(pred.coord_list, self.confidence)
+            for center in center_list:
+                center = (int(center[0]), int(center[1]))
+                origin_img = cv2.circle(origin_img, center, radius=10, color=(0, 0, 255), thickness=-1)
+            self.set_image(origin_img)
+            self.label_4.setText(str(self.time_detect))  # Has to use a label, editbox just freezes the GUI
+
+        cuda_context.pop()
+
+
+    def cuda_contextYOLOTiny(self):
+        pred2 = BaseEngineCracker(engine_path='./tensorrt-python/YOLOv7TinyVer5.trt')
+
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+
+        while True:
+            fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
+                                                      "All Files (*);;Images (*.png *.xpm *.jpg *.bmp *.gif)",
+                                                      options=options)
+            if fileName:
+                image = cv2.imread(fileName)
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                confidence = self.confidence
+                self.time_start = time.time()
+                origin_img = pred2.direct_inference(image, conf=confidence)
+                origin_img = cv2.cvtColor(origin_img, cv2.COLOR_RGB2BGR)
+                self.time_detect = time.time() - self.time_start
+                center_list = coord_list_to_center_list(pred2.coord_list, self.confidence)
+                for center in center_list:
+                    center = (int(center[0]), int(center[1]))
+                    origin_img = cv2.circle(origin_img, center, radius=10, color=(0, 0, 255), thickness=-1)
+                self.set_image(origin_img)
+                self.label_4.setText(str(self.time_detect))  # Has to use a label, editbox just freezes the GUI
+
+            else:
+                break
+
+    def cuda_contextYOLOSegmentation(self):
+        cuda.init()
+        cuda_context = cuda.Device(0).make_context()
+        opt = parse_opt()
+        opt.nosave = True
+        segment_object = SegmentInference()
+        segment_object.start(**vars(opt))
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+
+        while True:
+            fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
+                                                      "All Files (*);;Images (*.png *.xpm *.jpg *.bmp *.gif)",
+                                                      options=options)
+            if fileName:
+                opt.source = fileName
+                self.time_start = time.time()
+                segment_object.infer(**vars(opt))
+                self.time_detect = time.time() - self.time_start
+                self.set_image(segment_object.get_inferred_image_with_MaskCentroid())
+                self.label_4.setText(str(self.time_detect))  # Has to use a label, editbox just freezes the GUI
+            else:
+                break
+        cuda_context.pop()
 
     def stop_grabbing(self):
         global obj_cam_operation

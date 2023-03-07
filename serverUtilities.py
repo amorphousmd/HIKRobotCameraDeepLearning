@@ -66,6 +66,7 @@ def accept_client_again():
 
 def send_data_thread(data):
     if not data:
+        # print('Sent')
         return
     def send(msg):
         FORMAT = 'utf-8'
