@@ -10,10 +10,10 @@ from CameraParams_header import *
 import cv2, imutils, threading
 from PyQt5.QtGui import QImage
 from PyQt5.QtCore import QTimer
-from mmcv import Config
-from mmcv.runner import load_checkpoint
-from mmdet.apis import inference_detector, show_result_pyplot
-from mmdet.models import build_detector
+# from mmcv import Config
+# from mmcv.runner import load_checkpoint
+# from mmdet.apis import inference_detector, show_result_pyplot
+# from mmdet.models import build_detector
 import numpy as np
 from centerUtils import detect_center
 from centerUtils import detect_center_bbox
@@ -73,7 +73,7 @@ def coord_list_to_center_list(coord_list, confidence):
             y_left = coord[1]
             x_right = coord[2]
             y_right = coord[3]
-            centers.append([(x_left + x_right)/2, (y_left + y_right)/2])
+            centers.append([(y_left + y_right)/2, (x_left + x_right)/2])
     return centers
 
 def TxtWrapBy(start_str, end, all):
@@ -136,12 +136,12 @@ class Logic(QMainWindow, Ui_MainWindow):
     def overwriteLogic(self):
         # GUI VARIABLES
         self.model = 0  # Default model index
-        self.confidence = 0.5 # Default confidence
+        self.confidence = 0.9 # Default confidence
         self.run = False # A variable that allows the inference operation
         self.Timer = QTimer()
         self.Timer.timeout.connect(self.trigger_once)
-        self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
-        self.cfg.model.mask_head.num_classes = 1
+        # self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
+        # self.cfg.model.mask_head.num_classes = 1
         self.polygonMask = True
         self.ignoreFrame = False
 
@@ -225,8 +225,8 @@ class Logic(QMainWindow, Ui_MainWindow):
     def getPos(self, event):
         if not self.calculateDistance:
             # Swapping x and y according to the convention
-            y = round(event.pos().x() /1000 * 2592)
-            x = round(event.pos().y() /1000 * 2592)
+            x = round(event.pos().x() /1000 * 2592)
+            y = round(event.pos().y() /1000 * 2592)
             self.editPixCoordX.setText(str(x))
             self.editPixCoordY.setText(str(y))
             convertTuple = (x, y)
@@ -238,8 +238,8 @@ class Logic(QMainWindow, Ui_MainWindow):
             self.editPixelCoordY.setText(str(convertedCoords[1]))
             self.calculateDistance = True
         else:
-            y = round(event.pos().x() / 1000 * 2592)
-            x = round(event.pos().y() / 1000 * 2592)
+            x = round(event.pos().x() / 1000 * 2592)
+            y = round(event.pos().y() / 1000 * 2592)
             self.editPixCoordX.setText(str(x))
             self.editPixCoordY.setText(str(y))
             convertTuple = (x, y)
@@ -437,6 +437,7 @@ class Logic(QMainWindow, Ui_MainWindow):
         global nSelCamIndex
         global obj_cam_operation
         global isOpen
+        global cam
         if isOpen:
             QMessageBox.warning(QMainWindow(), "Error", 'Camera is Running!', QMessageBox.Ok)
             return MV_E_CALLORDER
@@ -474,9 +475,10 @@ class Logic(QMainWindow, Ui_MainWindow):
         # else:
         ret = obj_cam_operation.Trigger_once()
         if ret != 0:
+            pass
             # strError = "TriggerSoftware failed ret:" + ToHexStr(ret)
             # QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
-            print('TriggerSoffware failed ret:' + ToHexStr(ret))
+            # print('TriggerSoffware failed ret:' + ToHexStr(ret))
         self.img = obj_cam_operation.get_np_image()
 
         self.imgSave = self.img
@@ -556,9 +558,14 @@ class Logic(QMainWindow, Ui_MainWindow):
             #----------------------------------------------------------------------------------------------------#
             # Calculate center_list
             center_list = coord_list_to_center_list(pred.coord_list, self.confidence)
+            print(center_list)
+            print(CameraUtils.convertPixelToWorld(center_list))
             for center in center_list:
-                center = (int(center[0]), int(center[1]))
+                center = swapTuple2((int(center[0]), int(center[1])))
                 origin_img = cv2.circle(origin_img, center, radius=10, color=(0, 0, 255), thickness=-1)
+            thread = threading.Thread(target=serverUtilities.send_data_thread,
+                                      args=[CameraUtils.convertPixelToWorld(center_list)])
+            thread.start()
             self.set_image(origin_img)
             self.time_detect = time.time() - self.time_start
             self.label_4.setText(str(self.time_detect))  # Has to use a label, editbox just freezes the GUI
@@ -681,7 +688,6 @@ class Logic(QMainWindow, Ui_MainWindow):
 
             self.radioContinueMode.setChecked(False)
             self.radioTriggerMode.setChecked(True)
-            # ui.bnSoftwareTrigger.setEnabled(isGrabbing)
 
         # en:set trigger software
 
@@ -690,7 +696,8 @@ class Logic(QMainWindow, Ui_MainWindow):
         if ret != 0:
             # strError = "TriggerSoftware failed ret:" + ToHexStr(ret)
             # QMessageBox.warning(QMainWindow(), "Error", strError, QMessageBox.Ok)
-            print('TriggerSoffware failed ret:' + ToHexStr(ret))
+            # print('TriggerSoffware failed ret:' + ToHexStr(ret))
+            pass
 
         # en:save image
 

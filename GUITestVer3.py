@@ -10,10 +10,10 @@ from CameraParams_header import *
 import cv2, imutils, threading
 from PyQt5.QtGui import QImage
 from PyQt5.QtCore import QTimer
-from mmcv import Config
-from mmcv.runner import load_checkpoint
-from mmdet.apis import inference_detector, show_result_pyplot
-from mmdet.models import build_detector
+# from mmcv import Config
+# from mmcv.runner import load_checkpoint
+# from mmdet.apis import inference_detector, show_result_pyplot
+# from mmdet.models import build_detector
 import numpy as np
 from centerUtils import detect_center
 from centerUtils import detect_center_bbox
@@ -149,8 +149,8 @@ class Logic(QMainWindow, Ui_MainWindow):
         self.run = False
         self.Timer = QTimer()
         self.Timer.timeout.connect(self.trigger_once)
-        self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
-        self.cfg.model.mask_head.num_classes = 1
+        # self.cfg = Config.fromfile('mmdetection/configs/solov2/solov2_light_r18_fpn_3x_coco.py')
+        # self.cfg.model.mask_head.num_classes = 1
         self.polygonMask = True
         self.ignoreFrame = False
         self.comboModels.setItemText(0, "YOLOv7")

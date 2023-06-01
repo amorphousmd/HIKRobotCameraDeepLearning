@@ -14,3 +14,7 @@ TCPIPTest/
 TRT_Weights/Crackers2YOLOv7.trt
 TRT_Weights/Crackers2YOLOv7.trt
 *.pyc
+
+.idea/
+
+Camera_SDK/MvImport/__init__.py

@@ -44,7 +44,7 @@ bottomRow = [0, 0, 1]
 rotationMatrix = np.vstack([rotationRectangle, bottomRow])
 print(rotationMatrix)
 transformationMatrix = transformationMatrix @ rotationMatrix
-transformationMatrix = transformationMatrix + np.array([[0, 0, -140], [0, 0, 0], [0, 0, 0]])
+transformationMatrix = transformationMatrix + np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
 np.save('./calibSaves/PtWMatrixModified2.npy', np.linalg.inv(transformationMatrix))
 
 

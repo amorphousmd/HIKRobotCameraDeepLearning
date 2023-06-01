@@ -1,10 +1,10 @@
-from mmcv import Config
-from mmdet.apis.inference import inference_detector
-import mmcv
-from mmcv.runner import load_checkpoint
-from mmdet.apis import inference_detector, show_result_pyplot
-from mmdet.models import build_detector
-from mmdetection.mmdet.apis.inference import show_result_ins
+# from mmcv import Config
+# from mmdet.apis.inference import inference_detector
+# import mmcv
+# from mmcv.runner import load_checkpoint
+# from mmdet.apis import inference_detector, show_result_pyplot
+# from mmdet.models import build_detector
+# from mmdetection.mmdet.apis.inference import show_result_ins
 import numpy as np
 import pycocotools.mask as maskUtils
 import cv2
